@@ -11,7 +11,7 @@ The network consists of 4 subnets:
 -   172.10.10.0/24: **employee home LAN**.
 -   10.0.2.0/24: **VirtualBox NAT network**.
 
-<!--
+
 ```puml
 @startuml
 nwdiag {
@@ -32,6 +32,7 @@ nwdiag {
         isprouter [address = "192.168.62.254"];
         your_laptop [address = "dhcp"];
         homerouter [address = "192.168.62.42"];
+        kali [address = "192.168.62.110", dns = "192.168.62.254"];
     }
 
     network employee_home_lan {
@@ -54,9 +55,9 @@ nwdiag {
 }
 @enduml
 ```
--->
 
-![](https://www.plantuml.com/plantuml/svg/VPBXRi8W4CU_zob8lzjPj6wBMU9xc8MSSjD62WJekcRntOUPeXWAsc-__t7yxZRMWN5z9mevy1OEvBSW_aXqWp8dqag7He9WUzLfa2CJ8A_8vG3d1gqb7wH-fTLYNldVIxrQ5u6uvepgVI6olGVAQu8sZV-MvUSwPBYqAN9UHTI0kpHLpwDYu6075YVOvf75JWiruXHB5pVuN4IMlk24x5yLkgIUidwdLRrwgrRK6wBBCgCe6QBDuh7Jrkei_wnqLBrX0hHJEahmuru_SaVLORxmagOb17diKYEv9q5dxNK63Rch0-__pqyos2c7x7PjCfGRsdThN0zYftwOXAcfNHeD4ylQ3t2yKl4jx00E1nXJEPg9SMbJaUUd6GHntyCjiKVGwFczK3ttQAQXsInEhujpiK79-qxy0G00)
+
+
 
 ## Usage
 
@@ -102,3 +103,4 @@ nwdiag {
     ```
 
     :bulb: We have added `dos2unix` here for Windows users, but why do they need this? Tip: Linux users don't need this. Tip2: `\r\n` vs. `\n`.
+

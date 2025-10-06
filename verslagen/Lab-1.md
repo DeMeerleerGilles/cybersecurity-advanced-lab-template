@@ -102,4 +102,136 @@ De default gateway moest ingesteld worden op 192.168.62.254. Daarnaast had ik oo
  echo "nameserver 1.1.1.1" | sudo tee /etc/resolv.conf
 ```
 
-Hierna kon ik alles bereiken.
+Hierna kon ik alles bereiken vanop de kali.
+
+Bij het uitvoeren van een nmap zien we alle routers staan.
+```bash
+──(vagrant㉿red)-[~]
+└─$ nmap -sn 192.168.62.0/24
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-10-06 08:42 EDT
+Nmap scan report for 192.168.62.0
+Host is up (0.00022s latency).
+MAC Address: 0A:00:27:00:00:0A (Unknown)
+Nmap scan report for 192.168.62.42
+Host is up (0.0012s latency).
+MAC Address: 08:00:27:80:13:EC (PCS Systemtechnik/Oracle VirtualBox virtual NIC)
+Nmap scan report for 192.168.62.253
+Host is up (0.00029s latency).
+MAC Address: 08:00:27:26:49:5E (PCS Systemtechnik/Oracle VirtualBox virtual NIC)
+Nmap scan report for 192.168.62.254
+Host is up (0.00039s latency).
+MAC Address: 08:00:27:46:85:65 (PCS Systemtechnik/Oracle VirtualBox virtual NIC)
+Nmap scan report for 192.168.62.110
+Host is up.
+Nmap done: 256 IP addresses (5 hosts up) scanned in 2.32 seconds
+```
+
+DNS zone transfer
+
+```bash
+┌──(vagrant㉿red)-[~]
+└─$ dig axfr @172.30.0.4 cybersec.internal 
+
+; <<>> DiG 9.20.11-4+b1-Debian <<>> axfr @172.30.0.4 cybersec.internal
+; (1 server found)
+;; global options: +cmd
+cybersec.internal.      86400   IN      SOA     dns.cybersec.internal. admin.cybersec.internal. 2023092301 3600 1800 1209600 86400
+cybersec.internal.      86400   IN      NS      dns.cybersec.internal.
+txt.at.cybersec.internal. 86400 IN      TXT     "Greetings from CSA team!"
+dns.cybersec.internal.  86400   IN      A       172.30.0.4
+www.cybersec.internal.  86400   IN      A       172.30.0.10
+cybersec.internal.      86400   IN      SOA     dns.cybersec.internal. admin.cybersec.internal. 2023092301 3600 1800 1209600 86400
+;; Query time: 0 msec
+;; SERVER: 172.30.0.4#53(172.30.0.4) (TCP)
+;; WHEN: Mon Oct 06 09:08:23 EDT 2025
+;; XFR size: 6 records (messages 1, bytes 267)
+
+```
+We maken verbinding met de DNS server via ssh en we zoeken uit wat voor DNS server er op deze machine draait:
+
+```bash
+dns:~$ sudo netstat -tulpn | grep :53
+tcp        0      0 172.30.0.4:53           0.0.0.0:*               LISTEN      1779/named
+tcp        0      0 127.0.0.1:53            0.0.0.0:*               LISTEN      1779/named
+tcp        0      0 ::1:53                  :::*                    LISTEN      1779/named
+tcp        0      0 fe80::a00:27ff:fec2:42d:53 :::*                    LISTEN      1779/named
+udp        0      0 172.30.0.4:53           0.0.0.0:*                           1779/named
+udp        0      0 127.0.0.1:53            0.0.0.0:*                           1779/named
+udp        0      0 ::1:53                  :::*                                1779/named
+udp        0      0 fe80::a00:27ff:fec2:42d:53 :::*                                1779/named
+```
+
+Dit is BIND. Standaard staat zone transfers open voor iedereen.
+
+We controleren de configuratie:
+
+```bash
+sudo cat /etc/bind/named.conf
+options {
+    directory "/var/bind";
+    allow-transfer { any; };  # Allow zone transfers from any machine
+    listen-on { any; };       # Listen on all interfaces
+    listen-on-v6 { any; };    # Listen on all IPv6 interfaces
+    recursion yes;            # Enable recursion for forwarding other queries
+    forwarders {
+        192.168.62.254;       # Forward all other queries to this DNS server
+    };
+    allow-query { any; };     # Allow queries from any IP
+};
+
+zone "cybersec.internal" {
+    type master;
+    file "/var/bind/cybersec.internal";
+    allow-transfer { any; };  # Allow zone transfers from any machine
+```
+
+We veranderen de configuratie van dit:
+
+```conf
+options {
+    directory "/var/bind";
+    allow-transfer { any; };  # ← DIT IS HET PROBLEEM
+    listen-on { any; };
+    listen-on-v6 { any; };
+    recursion yes;
+    forwarders {
+        192.168.62.254;
+    };
+    allow-query { any; };
+};
+
+zone "cybersec.internal" {
+    type master;
+    file "/var/bind/cybersec.internal";
+    allow-transfer { any; };  # ← EN DIT OOK
+};
+```
+
+naar dit:
+
+```conf
+options {
+    directory "/var/bind";
+    allow-transfer { none; };  # ← BLOKKEER zone transfers
+    listen-on { any; };
+    listen-on-v6 { any; };
+    recursion yes;
+    forwarders {
+        192.168.62.254;
+    };
+    allow-query { any; };
+};
+
+zone "cybersec.internal" {
+    type master;
+    file "/var/bind/cybersec.internal";
+    allow-transfer { none; };  # ← BLOKKEER zone transfers
+};
+```
+
+Herstart de DNS server:
+
+```bash
+sudo named-checkconf
+sudo /etc/init.d/named restart
+```
