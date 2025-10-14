@@ -56,9 +56,6 @@ nwdiag {
 @enduml
 ```
 
-
-
-
 ## Usage
 
 1. Create the following host-only network in VirtualBox to simulate the the fake internet:

@@ -10,6 +10,7 @@ $VMs = @(
     "isprouter",
     "homerouter",
     "remote-employee"
+    "red-kali"
 )
 
 function Start-CSA-Machines {
