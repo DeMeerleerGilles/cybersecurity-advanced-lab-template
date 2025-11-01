@@ -74,7 +74,7 @@ geoclue:x:993:991:User for geoclue:/var/lib/geoclue:/sbin/nologin
 flatpak:x:992:990:Flatpak system helper:/:/usr/sbin/nologin
 ```
 
-## Nmap default scan
+### Nmap default scan
 
 Ik heb een nmap default scan uitgevoerd op alle machines in het netwerk met het commando:
 
@@ -168,7 +168,7 @@ Nmap done: 1 IP address (1 host up) scanned in 0.55 second
 
 Er draait een MySQL 5.5.5-10.11.11-MariaDB server op de database server.
 
-## Brute force van de database server
+### Brute force van de database server
 
 Try to search for a nmap script to brute-force the database. Another (even easier tool) is called hydra (https://github.com/vanhauser-thc/thc-hydra). Search online for a good wordlist. For example "rockyou" or https://github.com/danielmiessler/SecLists We suggest to try the default username of the database software and attack the database machine. Another interesting username worth a try is "toor".
 
@@ -176,3 +176,236 @@ Ik gebruikte het volgende commando:
 
 ```bash
 [vagrant@web ~]$ hydra -L /usr/share/wordlists/nmap.lst -P /usr/share/wordlists/rockyou.txt -f -o /tmp/hydra_results.txt -u
+```
+
+Proberen om te ssh verbinden van de red machine naar een andere machine met vagrant/vagrant:
+
+```bash
+──(vagrant㉿red)-[~]
+└─$ ssh vagrant@192.168.62.42          
+The authenticity of host '192.168.62.42 (192.168.62.42)' can't be established.
+ED25519 key fingerprint is SHA256:tVgSkWqegBlTs+mcUNdtVa1PitC6LZF18Qu921xy9cw.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '192.168.62.42' (ED25519) to the list of known hosts.
+vagrant@192.168.62.42's password: 
+Permission denied, please try again.
+vagrant@192.168.62.42's password: 
+Last failed login: Mon Oct 20 12:20:43 UTC 2025 from 192.168.62.110 on ssh:notty
+There was 1 failed login attempt since the last successful login.
+Last login: Mon Oct  6 07:26:42 2025 from 192.168.62.254
+[vagrant@db ~]$ 
+```
+
+Dit is mogelijk.
+
+Kijken welke versie er op de webserver draait:
+
+```bash
+└─$ nmap -sV -p80,443 172.30.0.10  
+curl -I http://172.30.0.10/
+
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-10-20 08:30 EDT
+Nmap scan report for 172.30.0.10
+Host is up (0.0011s latency).
+
+PORT    STATE  SERVICE VERSION
+80/tcp  open   http    Apache httpd 2.4.62 ((AlmaLinux))
+443/tcp closed https
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 6.61 seconds
+HTTP/1.1 200 OK
+Date: Mon, 20 Oct 2025 12:30:31 GMT
+Server: Apache/2.4.62 (AlmaLinux)
+Last-Modified: Fri, 26 Sep 2025 14:18:11 GMT
+ETag: "58f-63fb4f4a1330a"
+Accept-Ranges: bytes
+Content-Length: 1423
+Content-Type: text/html; charset=UTF-8
+```
+
+De webserver draait Apache httpd 2.4.62 ((AlmaLinux)).
+
+### Gebruik -sC optie met nmap — wat is het?
+
+-sC voert de default NSE scripts uit (Nmap Scripting Engine) — een set van scripts die vaak basale informatie en checks uitvoeren (vulnerability checks, banners, http-enum, etc.). Het is handig voor een snelle extra laag informatieverzameling.
+
+```bash
+nmap -sV -sC -p80,443 172.30.0.10
+──(vagrant㉿red)-[~]
+└─$ nmap -sV -sC -p80,443 172.30.0.10
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-10-20 08:45 EDT
+Nmap scan report for 172.30.0.10
+Host is up (0.0010s latency).
+
+PORT    STATE  SERVICE VERSION
+80/tcp  open   http    Apache httpd 2.4.62 ((AlmaLinux))
+| http-methods: 
+|_  Potentially risky methods: TRACE
+|_http-title: Welcome to Example Test Environment
+|_http-server-header: Apache/2.4.62 (AlmaLinux)
+443/tcp closed https
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 6.91 seconds
+```
+
+De output toont dat de webserver mogelijk risicovolle HTTP-methoden zoals TRACE toestaat, wat een potentiële beveiligingsrisico kan zijn.
+
+## Netwerksegmentatie
+
+Wat wordt bedoeld met de term attack vector?
+
+Een attack vector is het pad of de methode waarmee een aanvaller toegang kan krijgen tot een systeem of netwerk.
+Door het netwerk op te splitsen in segmenten en verkeer tussen die zones te beperken, verklein je het aantal mogelijke aanvalspaden.
+
+Is er al network segmentation gedaan op het huidige (interne) bedrijfennetwerk?
+
+Nee, nog niet.
+Momenteel bevinden alle interne hosts (web, database, dns, employee) zich in hetzelfde subnet 172.30.0.0/16 zonder filtering of zones.
+Ook is het “fake internet” rechtstreeks verbonden met het bedrijf via de companyrouter, zonder firewallregels die inkomend verkeer beperken.
+
+Wat is een DMZ en welke machines horen daarin?
+
+Een DMZ (Demilitarized Zone) is een netwerkzone tussen het interne LAN en het internet.
+Ze bevat systemen die zowel door interne gebruikers als externe bezoekers moeten kunnen worden bereikt.
+
+Client ↔ server communicatie kan geblokkeerd worden door de firewall.
+Bijvoorbeeld:
+
+De webserver kan geen verbinding meer maken met de database.
+
+Interne werknemers kunnen geen DNS-resolutie meer doen als de firewall te streng is.
+
+Configuratie van de companyrouter met nieuwe subnetten voor het intern LAN en de firewallregels:
+
+```bash
+sudo tee /etc/nftables.conf > /dev/null <<'EOF'
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+#
+# Zone definitions
+#
+define WAN = "eth0"
+define EXTERNAL = "eth1"
+define INTERNAL = "eth2"
+
+define fake_internet = 192.168.62.0/24
+define dmz_net = 172.30.10.0/24
+define intranet_net = 172.30.20.0/24
+
+#
+# FILTER TABLE
+#
+table inet filter {
+    chain input {
+        type filter hook input priority 0; policy drop;
+
+        # Allow loopback
+        iif lo accept
+
+        # Allow established connections
+        ct state { established, related } accept
+
+        # Allow ICMP (ping)
+        ip protocol icmp accept
+
+        # Allow SSH from internal network and DMZ
+        ip saddr { $intranet_net, $dmz_net } tcp dport 22 accept
+
+        # Optional: allow SSH from fake internet (Kali) for testing
+        ip saddr 192.168.62.110 tcp dport 22 accept
+    }
+
+        chain forward {
+        type filter hook forward priority 0; policy drop;
+
+        ct state { established, related } accept
+
+        # Allow internal networks to reach the internet
+        iifname $INTERNAL oifname $WAN accept
+
+        # Allow internal networks to reach each other (optional)
+        ip saddr $intranet_net ip daddr $dmz_net accept
+
+        # Allow web traffic from fake internet to DMZ webserver (HTTP)
+        ip saddr $fake_internet ip daddr $dmz_net tcp dport 80 accept
+
+        # Allow ICMP (ping) from fake internet to DMZ
+        ip saddr $fake_internet ip daddr $dmz_net icmp type echo-request accept
+        # Allow DNS queries from fake internet (Kali) to internal DNS server
+        ip saddr $fake_internet ip daddr $intranet_net udp dport 53 accept
+        ip saddr $fake_internet ip daddr $intranet_net tcp dport 53 accept
+
+        # Block all other traffic from fake internet
+        ip saddr $fake_internet drop
+    }
+
+
+    chain output {
+        type filter hook output priority 0; policy accept;
+    }
+}
+
+#
+# NAT TABLE
+#
+table ip nat {
+    chain prerouting {
+        type nat hook prerouting priority -100;
+    }
+
+    chain postrouting {
+        type nat hook postrouting priority 100;
+
+        # Masquerade all traffic going to WAN
+        oifname $WAN ip saddr { $intranet_net, $dmz_net } masquerade
+    }
+}
+EOF
+```
+
+ik herstart de nftables service:
+
+```bash
+sudo systemctl enable nftables
+sudo systemctl restart nftables
+sudo nft list ruleset
+```
+
+Ook moest ik de router nog de nieuwe subnetten meegeven:
+
+```bash
+[vagrant@companyrouter ~]$ 
+sudo ip addr add 172.30.10.254/24 dev eth2
+sudo ip addr add 172.30.20.254/24 dev eth2
+```
+
+Ook ipv4 forwarding moest nog ingeschakeld worden.
+
+```bash
+sudo sysctl -w net.ipv4.ip_forward=1
+echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+```
+
+### Poortstatussen in nmap
+
+nmap -p 22,80,666 172.30.10 -sV -Pn gaf:
+
+22/tcp — open (OpenSSH 8.7)
+
+80/tcp — open (Apache httpd 2.4.62)
+
+666/tcp — closed (geen service luistert; host stuurt RST)
+
+1) Wat betekent dit — uitleg (kort)
+
+open: er luistert een service die reageert op connecties (SYN → SYN/ACK). Nmap kan conversatie afhandelen en identificeert de service (SSH, HTTP).
+
+closed: het host-systeem is bereikbaar en reageert, maar er luistert geen service op die poort; de host stuurt een RST. Nmap weet dus zeker dat poort gesloten is.
+
+filtered (wat je eerder zag): er komt geen antwoord terug — meestal omdat een firewall het pakket dropt; nmap kan niet vaststellen of er een service luistert.
