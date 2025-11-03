@@ -321,28 +321,31 @@ table inet filter {
     }
 
         chain forward {
-        type filter hook forward priority 0; policy drop;
+    type filter hook forward priority 0; policy drop;
 
-        ct state { established, related } accept
+    #  Sta bestaande connecties toe
+    ct state { established, related } accept
 
-        # Allow internal networks to reach the internet
-        iifname $INTERNAL oifname $WAN accept
+    #  LAN → WAN
+    iifname $INTERNAL oifname $WAN accept
 
-        # Allow internal networks to reach each other (optional)
-        ip saddr $intranet_net ip daddr $dmz_net accept
+    # LAN ↔ DMZ
+    ip saddr $intranet_net ip daddr $dmz_net accept
 
-        # Allow web traffic from fake internet to DMZ webserver (HTTP)
-        ip saddr $fake_internet ip daddr $dmz_net tcp dport 80 accept
+    # Fake internet → DMZ webserver
+    ip saddr $fake_internet ip daddr $dmz_net tcp dport 80 accept
+    ip saddr $fake_internet ip daddr $dmz_net icmp type echo-request accept
 
-        # Allow ICMP (ping) from fake internet to DMZ
-        ip saddr $fake_internet ip daddr $dmz_net icmp type echo-request accept
-        # Allow DNS queries from fake internet (Kali) to internal DNS server
-        ip saddr $fake_internet ip daddr $intranet_net udp dport 53 accept
-        ip saddr $fake_internet ip daddr $intranet_net tcp dport 53 accept
+    # Fake internet → Internal DNS
+    ip saddr $fake_internet ip daddr $intranet_net udp dport 53 accept
+    ip saddr $fake_internet ip daddr $intranet_net tcp dport 53 accept
 
-        # Block all other traffic from fake internet
-        ip saddr $fake_internet drop
-    }
+    #  Laat ook terugverkeer van DMZ naar fake internet door
+    ip saddr $dmz_net ip daddr $fake_internet accept
+    #  Drop al de rest
+    ip saddr $fake_internet drop
+}
+
 
 
     chain output {
