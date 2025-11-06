@@ -6,7 +6,7 @@
 | 172.30.10.0 | 172.30.20.0  |
 | webserver   | clients, db  |
 
-adressen per toestel:
+IP-adressen per toestel:
 
 | toestel       | IP-adres       |
 | ------------- | -------------- |
