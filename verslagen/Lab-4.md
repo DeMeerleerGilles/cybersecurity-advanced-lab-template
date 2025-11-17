@@ -98,6 +98,4 @@ Ja, deze worden gelogd. Ze zijn terug te vinden in de
 Can an attacker perform malicious things?
 Are the actions, in other words, the commands, logged to a file? Which file?
 
-
-
 If you are an experienced hacker, how would/can you realize this is not a normal environment?
