@@ -405,7 +405,7 @@ nmap -p 22,80,666 172.30.10 -sV -Pn gaf:
 
 666/tcp — closed (geen service luistert; host stuurt RST)
 
-1) Wat betekent dit — uitleg (kort)
+1) Wat betekent dit
 
 open: er luistert een service die reageert op connecties (SYN → SYN/ACK). Nmap kan conversatie afhandelen en identificeert de service (SSH, HTTP).
 

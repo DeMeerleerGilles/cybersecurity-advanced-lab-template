@@ -36,3 +36,24 @@ sudo dnf update
 sudo dnf search borgbackup
 ```
 
+Nu moesten we de repository initialiseren:
+
+```bash
+borg init --encryption=repokey vagrant@172.30.20.15:~/backups
+```
+
+Passphrase: test
+
+Om met keys te werken, moesten we eerst een SSH key genereren op de webserver:
+
+```bash
+ssh-keygen -t rsa -b 4096
+ssh-copy-id vagrant@172.30.20.15
+```
+
+Nu exporteren we de borg-keyfile:
+
+```bash
+borg key export ~/borg-keyfile vagrant@172.30.20.15:~/backups
+```
+
