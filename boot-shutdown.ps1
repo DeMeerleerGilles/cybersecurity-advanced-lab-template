@@ -2,7 +2,7 @@
 
 # List of VMs
 $VMs = @(
-    "companyrouter",
+    "companyrouter 1",
     "dns",
     "web",
     "database",

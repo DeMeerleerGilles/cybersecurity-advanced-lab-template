@@ -1,10 +1,8 @@
-# Verslag labo 4: Honeypots
+# Verslag labo 4: Honeypots (KIJK NA IN DE KERSTVAKANTIE FOUTEN NA DIT LABO ROLLBACK GEDAAN)
 
 ## What is a honeypot?
 
 A honeypot is a deliberately vulnerable or attractive system, service or resource deployed to detect, study, and distract attackers. It appears as a real target to an adversary but is instrumented to record attacker actions, techniques and indicators of compromise without providing legitimate business value.
-
-
 
 ## LABO
 
@@ -95,10 +93,10 @@ Are your commands logged? Is the IP address of the SSH client logged? If this is
 
 Ja, alle ingegeven commando’s worden gelogd, inclusief:
 
-- Het IP-adres van de aanvaller
-- De ingegeven username en password
-- Alle commando’s die worden uitgevoerd
-- Eventuele bestanden die geprobeerd worden te downloaden of uploaden
+-   Het IP-adres van de aanvaller
+-   De ingegeven username en password
+-   Alle commando’s die worden uitgevoerd
+-   Eventuele bestanden die geprobeerd worden te downloaden of uploaden
 
 Can an attacker perform malicious things?
 Are the actions, in other words, the commands, logged to a file? Which file?
@@ -108,10 +106,10 @@ cat /opt/cowrie/log/cowrie.json | less
 
 Nee, een aanvaller kan geen echte schade aanrichten. Alles gebeurt binnen de geëmuleerde omgeving:
 
-- Ze kunnen geen echte systeemwijzigingen doorvoeren
-- Ze kunnen geen netwerkscans van het echte systeem uitvoeren
-- Ze kunnen geen bestanden aanpassen buiten de Cowrie-container
-- Zelfs commando’s zoals rm -rf / of wget zijn fake en worden enkel gelogd
+-   Ze kunnen geen echte systeemwijzigingen doorvoeren
+-   Ze kunnen geen netwerkscans van het echte systeem uitvoeren
+-   Ze kunnen geen bestanden aanpassen buiten de Cowrie-container
+-   Zelfs commando’s zoals rm -rf / of wget zijn fake en worden enkel gelogd
 
 Cowrie vangt alle acties op en logt ze, maar voert niets echt uit op het hostsysteem.
 Dit is exact het doel van een honeypot: aanvallers bezig houden en observeren zonder risico.
@@ -120,17 +118,17 @@ If you are an experienced hacker, how would/can you realize this is not a normal
 
 Het valt af te leiden uit een aantal zaken, bijvoorbeeld:
 
-- Veel standaardtools (vim, nano, top, iptables, systemctl, …) ontbreken of geven rare output.
+-   Veel standaardtools (vim, nano, top, iptables, systemctl, …) ontbreken of geven rare output.
 
-- Directory-inhoud klopt niet met een echte Linux-installatie, of bepaalde paden zijn leeg.
+-   Directory-inhoud klopt niet met een echte Linux-installatie, of bepaalde paden zijn leeg.
 
-- Commando’s zoals ls, uname, df of cat /etc/passwd geven hardcoded output.
+-   Commando’s zoals ls, uname, df of cat /etc/passwd geven hardcoded output.
 
-- Zelfs bij zware commando’s blijft het systeem reageren zonder CPU-load.
+-   Zelfs bij zware commando’s blijft het systeem reageren zonder CPU-load.
 
-- Commando’s zoals ping, wget, of curl lijken te werken, maar er gebeurt niets effectiefs.
+-   Commando’s zoals ping, wget, of curl lijken te werken, maar er gebeurt niets effectiefs.
 
-- ps toont een heel beperkt procesoverzicht.
+-   ps toont een heel beperkt procesoverzicht.
 
 ## Critical thinking (security) when using "Docker as a service"
 
@@ -158,17 +156,17 @@ de honeypot moet kwetsbaar lijken, maar je wil niet dat een kwetsbaarheid in Cow
 
 Docker bestaat uit:
 
-- docker daemon (dockerd) → de server
-- draait achtergrondprocessen
-- maakt containers aan
-- beheert volumes, netwerken, images
-- draait meestal als root
+-   docker daemon (dockerd) → de server
+-   draait achtergrondprocessen
+-   maakt containers aan
+-   beheert volumes, netwerken, images
+-   draait meestal als root
 
 docker CLI → de client
 
-- het programma docker dat jij uitvoert in de terminal
-- stuurt opdrachten naar de Docker daemon
-- communiceert meestal via /var/run/docker.sock
+-   het programma docker dat jij uitvoert in de terminal
+-   stuurt opdrachten naar de Docker daemon
+-   communiceert meestal via /var/run/docker.sock
 
 Dus:
 Je CLI voert zelf niets uit. De Docker daemon doet al het werk. Jij stuurt enkel API-calls.
@@ -188,3 +186,115 @@ Als een aanvaller: Cowrie probeert te misbruiken, een exploit uitvoert, privileg
 Voor een honeypot is dit veel veiliger, want je laat bewust "kwetsbare of misleidende" software draaien.
 
 Conclussie: Een VM is veiliger dan een container
+
+## Docker deep dive
+
+Waarom wordt /var/run/docker.sock gemount?
+
+Omdat dit het communicatiekanaal is tussen de Docker CLI en de Docker daemon. We hebben dit nodig zodat de container opdrachten kan sturen naar de host Docker daemon.
+
+-   containers te starten/stoppen
+-   images te pullen
+-   volumes/netwerken te beheren
+-   logs op te vragen
+-   statistieken op te vragen
+
+Wat is docker.sock precies?
+
+een UNIX domain socket bestand, de lokale API endpoint van de Docker daemon (dockerd)te vinden op /var/run/docker.sock
+
+Waarom brengt dit ernstige security risico’s?
+
+Mounten van /var/run/docker.sock in een container ≈ container volledige root-toegang geven tot je host.
+
+Met toegang tot de Docker API kan een aanvaller:
+
+-   een privileged container starten
+-   een container starten met -v /:/host → volledige host filesystem
+-   bestanden aanpassen op de host
+-   persistente malware installeren
+-   netwerken aanpassen
+-   logs uitlezen met gevoelige informatie
+-   environment variables en secrets van andere containers zien
+
+“Access to docker.sock = root access to the host.”
+
+Daarom is dit een high-impact security risk.
+
+## Other honeypot types
+
+Wat voor type honeypot is honeyup?
+
+Honeyup is een:
+
+-   Honeypot network analyzer / honeynet visualizer
+-   Ontworpen om netwerkscans te detecteren, vooral ARP-scan, Nmap, DHCP-scans, etc.
+
+Het is dus een network-level honeypot die footprinting/scanning zichtbaar maakt.
+
+Wat is het idee achter OpenCanary?
+
+OpenCanary is een: lightweight host-based honeypot dat nep-services aanbiedt zoals:
+
+-   FTP
+-   SSH
+-   HTTP
+-   Redis
+-   SMB
+-   RDP
+-   etc.
+
+Het doel is intruders detecteren, niet te “foppen”.
+
+Idee:
+
+Je draait nep-services die nooit in normale werking gebruikt worden.
+Als iemand ermee verbindt → onmiddellijke alarmmelding.
+
+Is a HTTP(S) honeypot a good idea? Why or why not?
+
+Ja én nee, afhankelijk van de context.
+
+Voordelen:
+
+-   Simuleert een realistische aanvalsvector
+-   Je kan exploit attempts, payloads, bots en scans zien
+-   Geen echte schade want de backend is nep
+
+Nadelen:
+
+-   HTTP(S) verkeer is enorm → veel ruis
+
+-   Veel false positives (bots, scrapers)
+    Aanvallers zien soms te snel dat het een honeypot is
+-   HTTPS vergt certificaatmanagement
+
+Conclusie:
+
+Goed idee voor research of threat intel, maar niet ideaal als primaire security measure.
+
+Ons /cmd endpoint als honeypot: hoe commands loggen?
+
+Je kan alle input die gebruikers posten loggen.
+Voorbeeld:
+
+```python
+@app.route('/cmd', methods=['POST'])
+def cmd():
+    command = request.form.get("command")
+    with open("/var/log/cmd_honeypot.log", "a") as logfile:
+        logfile.write(f"{datetime.now()} - {command}\n")
+    return "OK"
+```
+
+Is dit haalbaar?
+
+Ja, zelfs heel eenvoudig.
+Alles wat binnenkomt via een form POST kan je gewoon dumpen naar:
+
+- een logfile
+- een database
+- syslog
+- Elasticsearch/Grafana Loki
+
+Zo heb je een volledig overzicht van alle gebruikte commando’s door aanvallers.

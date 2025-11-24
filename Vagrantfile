@@ -49,7 +49,7 @@ Vagrant.configure("2") do |config|
         host.vm.box = "almalinux/9"
         host.vm.hostname = "web"
 
-        host.vm.network "private_network", ip: "172.30.0.10", netmask: "255.255.255.0", virtualbox__intnet: "internal-company-lan"
+        host.vm.network "private_network", ip: "172.30.10.10", netmask: "255.255.255.0", virtualbox__intnet: "internal-company-lan"
 
         host.vm.provider :virtualbox do |v|
             v.name = "web"
@@ -68,7 +68,7 @@ Vagrant.configure("2") do |config|
         host.vm.box = "generic/alpine318"
         host.vm.hostname = "database"
 
-        host.vm.network "private_network", ip: "172.30.0.15", netmask: "255.255.255.0", virtualbox__intnet: "internal-company-lan"
+        host.vm.network "private_network", ip: "172.30.20.15", netmask: "255.255.255.0", virtualbox__intnet: "internal-company-lan"
 
         host.vm.provider :virtualbox do |v|
             v.name = "database"

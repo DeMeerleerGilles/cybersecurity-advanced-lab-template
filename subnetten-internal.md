@@ -1,10 +1,9 @@
 # Overzicht van de subnetten
 
-| subnet 1    | subnet 2     |
-| ----------- | ------------ |
-| DMZ         | Internal LAN |
-| 172.30.10.0 | 172.30.20.0  |
-| webserver   | clients, db  |
+| subnet 1       | subnet 2       |
+| -------------- | -------------- |
+| DMZ            | Internal LAN   |
+| webserver      | clients, db    |
 
 IP-adressen per toestel:
 
